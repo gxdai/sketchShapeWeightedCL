@@ -500,13 +500,14 @@ class model(Dataset):
 
             for iter in range(self.maxiter):
 
+                # Load data
                 sketch_fea_1, sketch_label_1 = self.nextBatch(self.batch_size, 'sketch_train')
-
                 shape_fea_1, shape_label_1 = self.nextBatch(self.batch_size, 'shape')
 
                 sketch_fea_2, sketch_label_2 = self.nextBatch(self.batch_size, 'sketch_train')
                 shape_fea_2, shape_label_2 = self.nextBatch(self.batch_size, 'shape')
 
+                # start training
                 if self.lossType == 'contrastiveLoss':
                     _, loss_, loss_sum_, sketch_fea, shape_fea = sess.run([self.gm_optim, self.loss, self.loss_summary, self.output_sketch_fea_1, self.output_shape_fea_1], feed_dict={
                             self.input_sketch_fea_1: sketch_fea_1,
@@ -531,6 +532,7 @@ class model(Dataset):
                             self.input_shape_label_2: shape_label_2
                             })
 
+                # This is the mode for weighted contrastive loss
                 elif self.lossType == 'weightedContrastiveLoss':
                     M_sketch, M_shape, M_cross_1, M_cross_2 = sess.run([self.expGM_sketch, self.expGM_shape, self.expGM_cross_1, self.expGM_cross_2], feed_dict={
                             self.input_sketch_fea_1: sketch_fea_1,
