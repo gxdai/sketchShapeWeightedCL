@@ -79,12 +79,17 @@ class model(Dataset):
 
         # class inheritance from Dataset class
         Dataset.__init__(self,sketch_train_list=sketch_train_list, sketch_test_list=sketch_test_list, shape_list=shape_list, num_views_shape=num_views_shape, feaSize=inputFeaSize, class_num=class_num, phase=phase, normFlag=normFlag)
-        print("INIT")
 
         self.build_model()
-        print("debug#################################")
 
-    def sketchNetwork(self, x):          #### for sketch network
+
+    
+    def sketchNetwork(self, x):          
+        """
+        network for sketch domain
+        
+        note: I tried two different activation functions, i.e. sigmoid, relu
+        """
         if self.activationType == 'relu':
             stddev = 0.01
             fc1 = self.fc_layer(x, 2000, "fc1", stddev)
@@ -106,7 +111,12 @@ class model(Dataset):
 
             return ac3, ac2
 
-    def shapeNetwork(self, x):          #### for sketch network
+    def shapeNetwork(self, x):          
+        """
+        network for shape domain
+
+        note: I tried two different activation functions, i.e. simgmoid, relu
+        """
         if self.activationType == 'relu':
             stddev = 0.01
             fc1 = self.fc_layer(x, 2000, "fc1", stddev)
@@ -169,12 +179,16 @@ class model(Dataset):
 
     def calculateGroundMetricContrastive(self, batchFea1, batchFea2, labelMatrix):
         """
-        calculate the ground metric between sketch and shape
+        calculate the ground metric between two batch of features 
         """
-        print("Calculate the ground metrics between two batches of features")
-        print("batchFea1.get_shape().as_list() = {}".format(batchFea1.get_shape().as_list()))
-        print("batchFea2.get_shape().as_list() = {}".format(batchFea2.get_shape().as_list()))
-        print("labelMatrix.get_shape().as_list() = {}".format(labelMatrix.get_shape().as_list()))
+
+        # Print the tensor shape for debug
+    
+        # print("Calculate the ground metrics between two batches of features")
+        # print("batchFea1.get_shape().as_list() = {}".format(batchFea1.get_shape().as_list()))
+        # print("batchFea2.get_shape().as_list() = {}".format(batchFea2.get_shape().as_list()))
+        # print("labelMatrix.get_shape().as_list() = {}".format(labelMatrix.get_shape().as_list()))
+
         squareBatchFea1 = tf.reduce_sum(tf.square(batchFea1), axis=1)
         squareBatchFea1 = tf.expand_dims(squareBatchFea1, axis=1)
 
@@ -198,30 +212,9 @@ class model(Dataset):
 
         # Flatten the groundMetric as a vector
         GMFlatten = tf.reshape(GM, [-1])
-        print("expGM.get_shape().as_list() = {}".format(expGM.get_shape().as_list()))
+        # print("expGM.get_shape().as_list() = {}".format(expGM.get_shape().as_list()))
 
         return GMFlatten, expGM
-
-
-
-    def groundMetricBatch(self, sketch_fea, shape_fea):
-        """
-        calculate the ground metric between sketch and shape
-        """
-        print(self.batch_size)
-
-        square_sketch_fea = tf.reduce_sum(tf.square(sketch_fea), axis=1)
-        square_sketch_fea = tf.expand_dims(square_sketch_fea, axis=1)
-
-        square_shape_fea = tf.reduce_sum(tf.square(shape_fea), axis=1)
-
-        square_shape_fea = tf.expand_dims(square_shape_fea, axis=0)
-
-        correlationTerm = tf.matmul(sketch_fea, tf.transpose(shape_fea, perm=[1, 0]))
-
-        groundMetric = tf.add(tf.subtract(square_sketch_fea, tf.multiply(2., correlationTerm)), square_shape_fea)
-
-        return groundMetric
 
 
 
@@ -233,43 +226,6 @@ class model(Dataset):
 
         return simLabelMatrix
 
-
-
-    def groundMetricBatchWithLabel(self, sketch_fea, shape_fea, sketch_label, shape_label):
-        """
-        calculate the ground metric between sketch and shape
-        """
-        print(self.batch_size)
-
-        simLabelMatrix = self.simLabelGeneration(sketch_label, shape_label)
-
-        square_sketch_fea = tf.reduce_sum(tf.square(sketch_fea), axis=1)
-        square_sketch_fea = tf.expand_dims(square_sketch_fea, axis=1)
-
-        square_shape_fea = tf.reduce_sum(tf.square(shape_fea), axis=1)
-
-        square_shape_fea = tf.expand_dims(square_shape_fea, axis=0)
-
-        correlationTerm = tf.matmul(sketch_fea, tf.transpose(shape_fea, perm=[1, 0]))
-
-
-        groundMetric = tf.add(tf.subtract(square_sketch_fea, tf.multiply(2., correlationTerm)), square_shape_fea)
-
-        hinge_groundMetric = tf.maximum(0., self.margin -  groundMetric)
-
-
-        GM_positivePair = tf.multiply(simLabelMatrix, groundMetric)
-        GM_negativePair = tf.multiply(1 - simLabelMatrix, hinge_groundMetric)
-
-        GM = tf.add(GM_positivePair, GM_negativePair)
-
-        expGM = tf.exp(tf.multiply(-1., GM))    # This is for optimizing "T"
-
-        # Flatten the groundMetric as a vector
-        GMFlatten = tf.reshape(GM, [-1])
-
-
-        return GM
 
 
 
@@ -512,7 +468,7 @@ class model(Dataset):
 
     def ckpt_status(self):
         print("[*] Reading checkpoint ...")
-        ckpt = tf.train.get_checkpoint_state(self.ckpt_dir)
+        ckpt = tf.train.get_checkpoint_state(os.path.join(self.ckpt_dir, self.lossType))
         if ckpt and ckpt.model_checkpoint_path:
             self.model_checkpoint_path = ckpt.model_checkpoint_path
             return True
@@ -623,92 +579,13 @@ class model(Dataset):
 
                 writer.add_summary(loss_sum_, iter)
                 # reset u values
-                if iter % 500  == 0:       # every 10 batches, update sinkhorn
+                if iter % 500  == 0:       
                     print("Iteration: [%5d] [total number of examples: %5d] time: %4.4f, loss: %.8f" % (iter, self.shape_num, time.time() - start_time, loss_))
 
                 # This is for debuging, not saving the checkpoint
                 if iter % 5000 == 0:
-                    saver.save(sess, os.path.join(self.ckpt_dir, self.ckpt_name), global_step=iter)
+                    saver.save(sess, os.path.join(self.ckpt_dir, self.lossType, self.ckpt_name), global_step=iter)
                 # self.evaluation_online(sess)
-
-    def evaluation_online(self, sess):
-        self.getLabel()
-
-        # initialize all the array to evaluation
-        testSketchNumber = len(self.sketch_test_label)
-        trainShapeNumber = len(self.shape_label)
-
-        distanceMatrix = np.zeros((testSketchNumber, trainShapeNumber))
-        sketchMatrix = np.zeros((testSketchNumber, 100))
-        shapeMatrix = np.zeros((trainShapeNumber, 100))
-
-        print("First Load all the data")
-        start_time = time.time()
-        tmp = np.zeros((self.batch_size, self.num_views, self.inputFeaSize))
-
-        if testSketchNumber % self.batch_size == 0:
-            rangeNumber = testSketchNumber
-        else:
-            rangeNumber = testSketchNumber + 1
-        for i in range(0, rangeNumber, self.batch_size):
-            print("Loading the {:5d}-th sketch".format(i))
-            for j in range(self.batch_size):
-                for k in range(self.num_views):
-                    filePath = self.sketch_test_data[i+j][k].split(' ')[0]
-                    tmp[j,k] = np.loadtxt(filePath)
-            tmp_out = sess.run(self.sketch_out, feed_dict={self.input_sketch_fea: tmp})
-            tmp_out = np.reshape(tmp_out, (self.batch_size, self.num_views, 100))
-            tmp_out = np.amax(tmp_out, axis=1)      # max-pooling across views
-            tmp_out = np.reshape(tmp_out, [self.batch_size, 100])
-
-            if i + self.batch_size <= testSketchNumber:
-                sketchMatrix[i:i+self.batch_size] = tmp_out
-            else:
-                sketchMatrix[i:] = tmp_out[:(i+self.batch_size)%testSketchNumber]
-
-        print("Time for Loading sketch is {}\n".format(time.time() - start_time))
-
-        start_time = time.time()
-
-        if trainShapeNumber % self.batch_size == 0:
-            rangeNumber = trainShapeNumber
-        else:
-            rangeNumber = trainShapeNumber + 1
-        for i in range(0, rangeNumber, self.batch_size):
-            print("Loading the {:5d}-th shape".format(i))
-            for j in range(self.batch_size):
-                for k in range(self.num_views):
-                    filePath = self.shape_data[i+j][k].split(' ')[0]
-                    tmp[j,k] = np.loadtxt(filePath)
-            tmp_out = sess.run(self.shape_out, feed_dict={self.input_shape_fea: tmp})
-            tmp_out = np.reshape(tmp_out, (self.batch_size, self.num_views, 100))
-            tmp_out = np.amax(tmp_out, axis=1)      # max-pooling across views
-            tmp_out = np.reshape(tmp_out, [self.batch_size, 100])
-            if i + self.batch_size <= trainShapeNumber:
-                shapeMatrix[i:i+self.batch_size] = tmp_out
-            else:
-                shapeMatrix[i:] = tmp_out[:(i+self.batch_size)%trainShapeNumber]
-
-        print("Time for Loading shape is {}\n".format(time.time() - start_time))
-
-        distM = distance.cdist(sketchMatrix, shapeMatrix)
-
-        print("calculating distance is finished")
-
-        model_label = np.array(self.shape_label).astype(int)
-        test_label = np.array(self.sketch_test_label).astype(int)
-        C_depths = self.retrievalParamSP()
-        C_depths = C_depths.astype(int)
-        nn_av, ft_av, st_av, dcg_av, e_av, map_, p_points, pre, rec = RetrievalEvaluation(C_depths, distanceMatrix, model_label, test_label, testMode=1)
-
-        print 'The NN is %5f' % (nn_av)
-        print 'The FT is %5f' % (ft_av)
-        print 'The ST is %5f' % (st_av)
-        print 'The DCG is %5f' % (dcg_av)
-        print 'The E is %5f' % (e_av)
-        print 'The MAP is %5f' % (map_)
-
-
 
     def evaluation(self):
         init = tf.global_variables_initializer()        # init all variables
