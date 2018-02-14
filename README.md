@@ -5,17 +5,17 @@
 
 ### Shape
 
-        * Shapes are rendered from 12 different angles. 
-        * All the rendered image are finetuned with AlexNet.
-        * Visual features are extracted in the second last layer.
-        * Max-pooling to get the final shape representation
+* Shapes are rendered from 12 different angles. 
+* All the rendered image are finetuned with AlexNet.
+* Visual features are extracted in the second last layer.
+* Max-pooling to get the final shape representation
 
 ### Sketch
 * Simply fine-tuned with AlexNet and extract the visual features in the second last layer
 
 
 
-## run
+## Run
 102 denotes using 102 gpu, 0 denotes gpu index, train denotes the mode 
 ```
 ./runWasser.sh 102 0 train
@@ -24,5 +24,4 @@
 ```
 ./runWasser.sh 102 0 evaluation
 ```
-
 
